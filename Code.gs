@@ -32,7 +32,7 @@ const COLS = ["juez_id", "juez", "alumno"]
   .concat(RUBROS.map(function (r, i) { return "r" + (i + 1) + " " + r[0] + " (" + r[1] + ")"; }), ["total", "estado", "actualizado"]);
 const I0 = 3;
 const I_TOT = I0 + ND, I_EST = I_TOT + 1, I_ACT = I_TOT + 2;
-function col(i) { let s = ""; i++; while (i > 0) { const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; }
+const col = function (i) { let s = ""; i++; while (i > 0) { const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; };
 
 function setup() {
   const p = props();
