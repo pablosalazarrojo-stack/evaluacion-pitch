@@ -270,8 +270,9 @@ td.top1{color:var(--basil);font-weight:700}
 
       <p class="hint" id="pAct"></p>
       <div id="pAl" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button class="save" id="bXls">Exportar Excel</button>
       <button class="save ink" id="bCsv">Exportar CSV</button>
-      <p class="hint">Una fila por alumno: orden, nombre, calificación (promedio de jueces), cuántos jueces y el promedio de cada rubro.</p>
+      <p class="hint">Excel y CSV: una fila por alumno con orden, nombre, calificación (promedio de jueces), cuántos jueces y el promedio de cada rubro. El Excel trae además una hoja «Jueces» con quién envió.</p>
       <button class="danger" id="bReset">Borrar todas las respuestas</button>
       <p class="hint">Deja la hoja en cero: los jueces empiezan de nuevo. No se puede deshacer.</p>
     </div>
@@ -551,6 +552,39 @@ td.top1{color:var(--basil);font-weight:700}
       .then(function(){ b.disabled=false; b.classList.remove("arm"); b.textContent="Borrar todas las respuestas"; });
   });
   function celda(v){ v=String(v==null?"":v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+  /* Excel (.xlsx) con SheetJS, cargado solo al tocar el botón */
+  var xlsxP=null;
+  function cargaXlsx(){
+    if(window.XLSX) return Promise.resolve();
+    if(!xlsxP) xlsxP=new Promise(function(res,rej){
+      var sc=document.createElement("script");
+      sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      sc.onload=res; sc.onerror=function(){ xlsxP=null; rej(new Error("no cargó la librería de Excel")); };
+      document.head.appendChild(sc);
+    });
+    return xlsxP;
+  }
+  $("bXls").addEventListener("click",function(){
+    var b=$("bXls"); b.disabled=true; b.textContent="Preparando…";
+    Promise.all([cargaXlsx(),cargaProfe()]).then(function(){
+      var o=ultimo;
+      var head=["Orden","Alumno","Calificación (prom. jueces)","Jueces"].concat(o.rubros.map(function(r){ return r[0]+" ("+r[1]+")"; }));
+      var rows=o.alumnos.map(function(a,i){
+        return [i+1,a.nombre,a.total==null?"":a.total,a.n].concat(a.prom||o.rubros.map(function(){ return ""; }));
+      });
+      var ws=XLSX.utils.aoa_to_sheet([head].concat(rows));
+      ws["!cols"]=[{wch:7},{wch:38},{wch:14},{wch:8}].concat(o.rubros.map(function(){ return {wch:16}; }));
+      ws["!autofilter"]={ref:"A1:"+XLSX.utils.encode_col(head.length-1)+"1"};
+      var wj=XLSX.utils.aoa_to_sheet([["Juez","Estado","Alumnos calificados"]].concat(o.jueces.map(function(j){ return [j.nombre,j.estado,j.k]; })));
+      wj["!cols"]=[{wch:30},{wch:12},{wch:20}];
+      var wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,"Calificaciones");
+      XLSX.utils.book_append_sheet(wb,wj,"Jueces");
+      XLSX.writeFile(wb,"evaluacion-pitch-"+new Date().toISOString().slice(0,10)+".xlsx");
+      toast("Excel descargado");
+    }).catch(function(e){ toast("No se pudo: "+e.message); })
+      .then(function(){ b.disabled=false; b.textContent="Exportar Excel"; });
+  });
   $("bCsv").addEventListener("click",function(){
     var b=$("bCsv"); b.disabled=true; b.textContent="Preparando…";
     cargaProfe().then(function(){
